@@ -16,6 +16,9 @@ __attribute__((weak)) void matrix_scan_user(void) {}
 __attribute__((weak)) void matrix_init_quantum(void) { matrix_init_kb(); }
 __attribute__((weak)) void matrix_scan_quantum(void) { matrix_scan_kb(); }
 
+uint_fast8_t col_pins [MAIN_COLS] = {GP14, GP17};
+uint_fast8_t row_pins [MAIN_ROWS] = {GP15, GP16};
+
 static matrix_row_t raw_matrix[MATRIX_ROWS];  // raw values
 static matrix_row_t matrix[MATRIX_ROWS];      // debounced values
 
@@ -28,24 +31,10 @@ matrix_row_t matrix_get_row(uint8_t row) {
     return matrix[row];
 }
 
-void matrix_power_up() {
-    print("matrix.c->matrix_power_up()");
-}
-
-void matrix_power_down() {
-    print("matrix.c->matrix_power_down()");
-}
-
 void matrix_print(void) {
-	print("hello matrix print");
-    //print_matrix_header();
-
-    /*for (uint8_t row = 0; row < MATRIX_ROWS; row++) {
-        phex(row);
-        print(": ");
-        print_matrix_row(row);
-        print("\n");
-    }*/
+	for (uint_fast8_t r = 0; r < MATRIX_ROWS; r++) {
+		dprintf("%u\n", matrix[r]);
+	}
 }
 
 void matrix_init(void) {
@@ -55,7 +44,14 @@ void matrix_init(void) {
         raw_matrix[i] = 0;
         matrix[i] = 0;
     }
-	print("hello i2c");
+	
+	for (uint8_t i = 0; i < MAIN_ROWS; i++) {
+        gpio_set_pin_input_low(row_pins[i]);
+    }
+
+    for (uint8_t i = 0; i < MAIN_COLS; i++) {
+        gpio_set_pin_output(col_pins[i]);
+    }
    
     // Unless hardware debouncing - Init the configured debounce routine
     //debounce_init(MATRIX_ROWS);
@@ -66,24 +62,50 @@ void matrix_init(void) {
 }
 
 uint8_t matrix_scan(void) {
-	print("hello");
     
     bool changed = false;
-    matrix_row_t current_row = 0;
-
-	for (uint8_t c = 0; c < MATRIX_COLS; c++) {
-		gpio_write_pin_high(GP14);
-		for (uint8_t r = 0; r < MATRIX_ROWS; r++) {
-            // Check if the key is pressed
-			uint8_t read = gpio_read_pin(GP15);
-			current_row = read;
-			if(matrix[r] != current_row){
-				
-				matrix[r] = current_row;
-				changed = true;
+    matrix_row_t current_row;
+	//swap rows and collumns to avoid lot of sleeps
+	for (uint_fast8_t r = 0; r < MATRIX_ROWS; r++) {
+		current_row = 0;
+		
+		if(r < MAIN_ROWS){
+			for (uint_fast8_t c = 0; c < MAIN_COLS; c++) {
+				gpio_write_pin_high(col_pins[c]);
+				wait_us(100);
+				// Check if the key is pressed
+				current_row |= (gpio_read_pin(row_pins[r]) << (c+RIGHT_COLS));
+				gpio_write_pin_low(col_pins[c]);
 			}
-        }
-		gpio_write_pin_low(GP14);
+		}
+		
+		/*if(current_row != raw_matrix[r]) {
+            raw_matrix[r] = current_row;
+            changed = true;
+        } */
+		/*const uint8_t write_row = r;
+		i2c_transmit(SLAVE_I2C_ADDRESS_RIGHT, &write_row, 1, 1);
+		i2c_transmit(SLAVE_I2C_ADDRESS_LEFT, &write_row, 1, 1);*/
+		uint8_t read;
+		i2c_status_t status;
+		
+		status = i2c_read_register(SLAVE_I2C_ADDRESS_RIGHT, r, &read, 1, 1);
+		if(status == I2C_STATUS_SUCCESS){	
+			current_row |= read;
+		}else{
+			dprint("i2c error right\n");
+		}
+		
+		status = i2c_read_register(SLAVE_I2C_ADDRESS_LEFT, r, &read, 1, 1);
+		if(status == I2C_STATUS_SUCCESS){	
+			current_row |= (read << (MAIN_COLS+RIGHT_COLS));
+		}else{
+			dprint("i2c error left\n");
+		}
+		if(current_row != matrix[r]) {
+            matrix[r] = current_row;
+            changed = true;
+        } 
     }
 	
 

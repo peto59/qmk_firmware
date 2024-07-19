@@ -4,10 +4,15 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define MY_I2C_ADDRESS (0x18 << 1)
-#define MAIN_I2C_ADDRESS (0x18 << 1)
-#define RIGHT_I2C_ADDRESS (0x19 << 1)
-#define LEFT_I2C_ADDRESS (0x20 << 1)
+#define SLAVE_I2C_ADDRESS_RIGHT (0x76 << 1)
+#define SLAVE_I2C_ADDRESS_LEFT (0x77 << 1)
+
+#define MAIN_ROWS 2
+#define MAIN_COLS 2
+#define LEFT_ROWS 2
+#define LEFT_COLS 2
+#define RIGHT_ROWS 2
+#define RIGHT_COLS 2
 
 
 void i2c_initialize(void);
