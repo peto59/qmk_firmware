@@ -26,7 +26,9 @@ void keyboard_pre_init_user(void) {
 
 void keyboard_post_init_user(void) {
   // Customise these values to desired behaviour
+#ifdef CONSOLE_ENABLE
   debug_enable=true;
   debug_matrix=true;
   debug_keyboard=true;
+#endif
 }

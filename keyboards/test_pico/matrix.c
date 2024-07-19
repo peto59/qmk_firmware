@@ -32,9 +32,11 @@ matrix_row_t matrix_get_row(uint8_t row) {
 }
 
 void matrix_print(void) {
+#ifdef CONSOLE_ENABLE
 	for (uint_fast8_t r = 0; r < MATRIX_ROWS; r++) {
 		dprintf("%u\n", matrix[r]);
 	}
+#endif
 }
 
 void matrix_init(void) {
@@ -64,50 +66,51 @@ void matrix_init(void) {
 uint8_t matrix_scan(void) {
     
     bool changed = false;
-    matrix_row_t current_row;
-	//swap rows and collumns to avoid lot of sleeps
-	for (uint_fast8_t r = 0; r < MATRIX_ROWS; r++) {
-		current_row = 0;
-		
-		if(r < MAIN_ROWS){
-			for (uint_fast8_t c = 0; c < MAIN_COLS; c++) {
-				gpio_write_pin_high(col_pins[c]);
-				wait_us(100);
-				// Check if the key is pressed
-				current_row |= (gpio_read_pin(row_pins[r]) << (c+RIGHT_COLS));
-				gpio_write_pin_low(col_pins[c]);
-			}
+    matrix_row_t current_matrix[MATRIX_ROWS];
+	uint_fast8_t r;
+	for (r = 0; r < MATRIX_ROWS; r++) {
+		current_matrix[r] = 0;
+	}
+	
+	for (uint_fast8_t c = 0; c < MAIN_COLS; c++) {
+		gpio_write_pin_high(col_pins[c]);
+		wait_us(1);
+		for (r = 0; r < MAIN_ROWS; r++) {
+			current_matrix[r] |= (gpio_read_pin(row_pins[r]) << (c+RIGHT_COLS));
 		}
+		gpio_write_pin_low(col_pins[c]);
+	}
 		
-		/*if(current_row != raw_matrix[r]) {
-            raw_matrix[r] = current_row;
-            changed = true;
-        } */
-		/*const uint8_t write_row = r;
-		i2c_transmit(SLAVE_I2C_ADDRESS_RIGHT, &write_row, 1, 1);
-		i2c_transmit(SLAVE_I2C_ADDRESS_LEFT, &write_row, 1, 1);*/
-		uint8_t read;
-		i2c_status_t status;
-		
+	uint8_t read;
+	i2c_status_t status;
+	for (r = 0; r < MATRIX_ROWS; r++) {
 		status = i2c_read_register(SLAVE_I2C_ADDRESS_RIGHT, r, &read, 1, 1);
 		if(status == I2C_STATUS_SUCCESS){	
-			current_row |= read;
-		}else{
+			current_matrix[r] |= read;
+		}
+#ifdef CONSOLE_ENABLE
+		else
+		{
 			dprint("i2c error right\n");
 		}
+#endif
 		
 		status = i2c_read_register(SLAVE_I2C_ADDRESS_LEFT, r, &read, 1, 1);
 		if(status == I2C_STATUS_SUCCESS){	
-			current_row |= (read << (MAIN_COLS+RIGHT_COLS));
-		}else{
+			current_matrix[r] |= (read << (MAIN_COLS+RIGHT_COLS));
+		}
+#ifdef CONSOLE_ENABLE
+		else
+		{
 			dprint("i2c error left\n");
 		}
-		if(current_row != matrix[r]) {
-            matrix[r] = current_row;
+#endif
+		
+		if(current_matrix[r] != matrix[r]) {
+            matrix[r] = current_matrix[r];
             changed = true;
         } 
-    }
-	
+	}
 
     //debounce(raw_matrix, matrix, MATRIX_ROWS, changed);
 

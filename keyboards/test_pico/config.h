@@ -10,8 +10,6 @@
 #define MATRIX_ROWS 2
 #define MATRIX_COLS 6
 
-#define DIODE_DIRECTION COL2ROW
-
 #define USE_I2C TRUE
 #define I2C_DRIVER I2CD1
 #define I2C1_SCL_PIN GP3
@@ -22,4 +20,6 @@
 #undef F_SCL
 #define F_SCL 1000000
 
+#ifdef CONSOLE_ENABLE
 #define DEBUG_MATRIX_SCAN_RATE
+#endif
